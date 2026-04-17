@@ -4,7 +4,6 @@ pub struct AppConfig {
     pub api_key: String,
     pub base_url: String,
     pub image_model: String,
-    pub embedding_model: String,
     pub transport_mode: TransportMode,
     pub host: String,
     pub flavor: crate::cli::Flavor,
@@ -23,7 +22,6 @@ impl AppConfig {
             api_key: cli.api_key,
             base_url: cli.base_url,
             image_model: cli.image_model,
-            embedding_model: cli.embedding_model,
             transport_mode: if cli.transport_mode == "http" {
                 TransportMode::Http
             } else {

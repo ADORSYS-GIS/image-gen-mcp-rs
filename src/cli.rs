@@ -24,14 +24,6 @@ pub struct Cli {
     #[arg(long, env = "IMAGE_MODEL", default_value = "nano-banana")]
     pub image_model: String,
 
-    /// Embedding model for text
-    #[arg(
-        long,
-        env = "EMBEDDING_MODEL",
-        default_value = "text-embedding-3-small"
-    )]
-    pub embedding_model: String,
-
     /// Transport mode: stdio or http
     #[arg(long, env = "TRANSPORT_MODE", default_value = "stdio")]
     pub transport_mode: String,

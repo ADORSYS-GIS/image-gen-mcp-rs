@@ -91,7 +91,6 @@ impl OpenAiImageClient {
         let n = params.n.unwrap_or(1);
         let model = self.parse_model(params.model.as_deref());
 
-        // Build using builder to avoid missing fields issues
         let mut builder = CreateImageRequestArgs::default();
         builder.prompt(&params.prompt);
         builder.model(model);
@@ -127,11 +126,5 @@ impl ImageGenerationPort for OpenAiImageClient {
             Flavor::NanoBanana => self.generate_nano_banana(params).await,
             _ => self.generate_standard(params).await,
         }
-    }
-
-    async fn download(&self, url: &str) -> DomainResult<Vec<u8>> {
-        let response = reqwest::get(url).await?;
-        let bytes = response.bytes().await?;
-        Ok(bytes.to_vec())
     }
 }

@@ -69,16 +69,4 @@ impl GenerateParams {
 #[async_trait]
 pub trait ImageGenerationPort: Send + Sync {
     async fn generate(&self, params: GenerateParams) -> DomainResult<Vec<String>>;
-    async fn download(&self, url: &str) -> DomainResult<Vec<u8>>;
-}
-
-/// Port for generating embeddings
-#[async_trait]
-pub trait EmbeddingPort: Send + Sync {
-    async fn generate(&self, text: &str) -> DomainResult<Vec<f32>>;
-}
-
-/// Service for unique ID generation (CUID2, never UUID)
-pub trait IdGenerator: Send + Sync {
-    fn generate(&self) -> String;
 }

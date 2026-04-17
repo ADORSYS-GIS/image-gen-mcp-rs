@@ -131,10 +131,7 @@ async fn run_http_server(config: AppConfig, port: u16) -> rust_mcp_sdk::error::S
 fn create_handler(config: AppConfig) -> McpHandler {
     let image_client = Arc::new(OpenAiImageClient::new(config.clone()))
         as Arc<dyn core::traits::ImageGenerationPort>;
-    let image_service = Arc::new(ImageGenerationService::new(
-        image_client,
-        config.image_model.clone(),
-    ));
+    let image_service = Arc::new(ImageGenerationService::new(image_client));
 
     McpHandler::new(image_service, config.image_model, config.flavor)
 }
