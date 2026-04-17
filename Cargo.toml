@@ -1,0 +1,76 @@
+[package]
+name = "image-mcp"
+version = "0.1.0"
+edition = "2024"
+description = "MCP server for image generation/editing via OpenAI-compatible endpoints (nanobanana, gpt-image-gen)"
+license = "MIT"
+repository = "https://github.com/selast/image-mcp"
+
+[dependencies]
+# MCP SDK - supports stdio + streamable HTTP + SSE
+rust-mcp-sdk = { version = "0.9", default-features = false, features = [
+    "server",
+    "macros",
+    "stdio",
+    "hyper-server",
+    "streamable-http",
+    "sse",
+] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# High-performance allocator
+mimalloc = "0.1"
+
+# OpenAI-compatible API client for image generation & embeddings
+async-openai = { version = "0.34", default-features = false, features = [
+    "rustls",
+    "_api",
+    "image",
+    "embedding",
+] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging & tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Async utilities
+async-trait = "0.1"
+futures = "0.3"
+
+# HTTP client for additional API calls
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+] }
+
+# Image processing
+image = "0.25"
+base64 = "0.22"
+
+# CLI arguments with environment variable support
+clap = { version = "4", features = ["derive", "env"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# CUID2 for unique identifiers (never use UUID)
+cuid2 = "0.1"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = 3
