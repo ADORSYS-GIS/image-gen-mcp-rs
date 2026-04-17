@@ -1,0 +1,91 @@
+name: Code Linting and SAST
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      # To report GitHub Actions status checks
+      statuses: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # actions/checkout@v5
+        with:
+          fetch-depth: "0"
+          persist-credentials: 'false'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev
+
+      - name: Run ESLint and post results
+        uses: super-linter/super-linter@61abc07d755095a68f4987d1c2c3d1d64408f1f9 # super-linter/super-linter@v8
+        env:
+          OPENSSL_NO_VENDOR: "1"
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_GITHUB_ACTIONS: "true"
+          VALIDATE_GITHUB_ACTIONS_ZIZMOR: "true"
+          VALIDATE_GITLEAKS: "true"
+          VALIDATE_GIT_MERGE_CONFLICT_MARKERS: "true"
+          VALIDATE_TRIVY: "true"
+          VALIDATE_YAML: "true"
+
+  sast:
+    name: "SAST Scan ${{ matrix.checks }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # actions/checkout@v5
+        name: Checkout
+        with:
+          fetch-depth: "0"
+          persist-credentials: 'false'
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.checks }}
+
+  code-checks:
+    name: Code Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # actions/checkout@v5
+        name: Checkout
+        with:
+          fetch-depth: "0"
+          persist-credentials: 'false'
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          components: clippy, rustfmt
+      - name: Run cargo check
+        run: cargo check --all-targets --all-features
+      - name: Run cargo fmt
+        run: cargo fmt -- --check
+      - name: Run cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
