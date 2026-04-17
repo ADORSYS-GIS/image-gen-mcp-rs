@@ -5,7 +5,7 @@ on:
 
 jobs:
   analyze:
-    runs-on: arc-runner-set-sky-frontend
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
       actions: read
