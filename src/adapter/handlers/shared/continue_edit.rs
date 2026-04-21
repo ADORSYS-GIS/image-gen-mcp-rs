@@ -1,8 +1,7 @@
 use rust_mcp_sdk::schema::CallToolRequestParams;
 
 use crate::{
-    adapter::handler::parse_args,
-    application::image::ImageGenerationService,
+    adapter::handler::parse_args, application::image::ImageGenerationService,
     core::traits::GenerateParams,
 };
 
@@ -12,7 +11,8 @@ pub async fn handle_continue_edit(
     service: Arc<ImageGenerationService>,
     default_model: String,
     params: &CallToolRequestParams,
-) -> std::result::Result<rust_mcp_sdk::schema::CallToolResult, rust_mcp_sdk::schema::CallToolError> {
+) -> std::result::Result<rust_mcp_sdk::schema::CallToolResult, rust_mcp_sdk::schema::CallToolError>
+{
     let tool: crate::adapter::tools::ContinueEditTool = parse_args(params)?;
     let gen_params = GenerateParams::new(format!(
         "{} {}",

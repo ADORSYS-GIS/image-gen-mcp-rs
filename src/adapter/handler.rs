@@ -1,9 +1,11 @@
+#![allow(clippy::enum_variant_names)]
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_mcp_sdk::{
-    mcp_server::ServerHandler,
     McpServer,
+    mcp_server::ServerHandler,
     schema::{
         CallToolError, CallToolRequestParams, CallToolResult, ListToolsResult,
         PaginatedRequestParams, RpcError, Tool,
@@ -18,9 +20,18 @@ use crate::{
 };
 
 // Tool sets per flavor
-tool_box!(StandardTools, [GenerateImageTool, ContinueEditTool, ListModelsTool]);
-tool_box!(NanoBananaTools, [GenerateImageNanoTool, ContinueEditTool, ListModelsTool]);
-tool_box!(OpenAiGenTools, [GenerateImageOpenAiTool, ContinueEditTool, ListModelsTool]);
+tool_box!(
+    StandardTools,
+    [GenerateImageTool, ContinueEditTool, ListModelsTool]
+);
+tool_box!(
+    NanoBananaTools,
+    [GenerateImageNanoTool, ContinueEditTool, ListModelsTool]
+);
+tool_box!(
+    OpenAiGenTools,
+    [GenerateImageOpenAiTool, ContinueEditTool, ListModelsTool]
+);
 
 pub struct McpHandler {
     image_service: Arc<ImageGenerationService>,
@@ -29,8 +40,16 @@ pub struct McpHandler {
 }
 
 impl McpHandler {
-    pub fn new(service: Arc<ImageGenerationService>, default_model: String, flavor: Flavor) -> Self {
-        Self { image_service: service, default_model, flavor }
+    pub fn new(
+        service: Arc<ImageGenerationService>,
+        default_model: String,
+        flavor: Flavor,
+    ) -> Self {
+        Self {
+            image_service: service,
+            default_model,
+            flavor,
+        }
     }
 
     fn tools(&self) -> Vec<Tool> {
@@ -59,7 +78,11 @@ impl ServerHandler for McpHandler {
         _req: Option<PaginatedRequestParams>,
         _runtime: Arc<dyn McpServer>,
     ) -> std::result::Result<ListToolsResult, RpcError> {
-        Ok(ListToolsResult { tools: self.tools(), meta: None, next_cursor: None })
+        Ok(ListToolsResult {
+            tools: self.tools(),
+            meta: None,
+            next_cursor: None,
+        })
     }
 
     async fn handle_call_tool_request(
@@ -81,21 +104,29 @@ impl McpHandler {
         params: &CallToolRequestParams,
     ) -> std::result::Result<CallToolResult, CallToolError> {
         match params.name.as_str() {
-            "generate_image" => handlers::standard::handle_generate_image(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
-            "continue_edit" => handlers::shared::continue_edit::handle_continue_edit(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
+            "generate_image" => {
+                handlers::standard::handle_generate_image(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
+            "continue_edit" => {
+                handlers::shared::continue_edit::handle_continue_edit(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
             "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
                 self.flavor,
                 self.default_model.clone(),
             )),
-            _ => Ok(CallToolResult::text_content(vec![format!("Tool '{}' not supported", params.name).into()])),
+            _ => Ok(CallToolResult::text_content(vec![
+                format!("Tool '{}' not supported", params.name).into(),
+            ])),
         }
     }
 
@@ -104,21 +135,29 @@ impl McpHandler {
         params: &CallToolRequestParams,
     ) -> std::result::Result<CallToolResult, CallToolError> {
         match params.name.as_str() {
-            "generate_image_nano" => handlers::nano_banana::handle_generate_image_nano(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
-            "continue_edit" => handlers::shared::continue_edit::handle_continue_edit(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
+            "generate_image_nano" => {
+                handlers::nano_banana::handle_generate_image_nano(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
+            "continue_edit" => {
+                handlers::shared::continue_edit::handle_continue_edit(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
             "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
                 self.flavor,
                 self.default_model.clone(),
             )),
-            _ => Ok(CallToolResult::text_content(vec![format!("Tool '{}' not supported", params.name).into()])),
+            _ => Ok(CallToolResult::text_content(vec![
+                format!("Tool '{}' not supported", params.name).into(),
+            ])),
         }
     }
 
@@ -127,21 +166,29 @@ impl McpHandler {
         params: &CallToolRequestParams,
     ) -> std::result::Result<CallToolResult, CallToolError> {
         match params.name.as_str() {
-            "generate_image_openai" => handlers::openai_gen::handle_generate_image_openai(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
-            "continue_edit" => handlers::shared::continue_edit::handle_continue_edit(
-                self.image_service.clone(),
-                self.default_model.clone(),
-                params,
-            ).await,
+            "generate_image_openai" => {
+                handlers::openai_gen::handle_generate_image_openai(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
+            "continue_edit" => {
+                handlers::shared::continue_edit::handle_continue_edit(
+                    self.image_service.clone(),
+                    self.default_model.clone(),
+                    params,
+                )
+                .await
+            }
             "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
                 self.flavor,
                 self.default_model.clone(),
             )),
-            _ => Ok(CallToolResult::text_content(vec![format!("Tool '{}' not supported", params.name).into()])),
+            _ => Ok(CallToolResult::text_content(vec![
+                format!("Tool '{}' not supported", params.name).into(),
+            ])),
         }
     }
 }

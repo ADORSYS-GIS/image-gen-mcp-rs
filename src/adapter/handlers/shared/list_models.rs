@@ -13,14 +13,14 @@ pub fn build_list_models_response(
         ),
     };
 
-    rust_mcp_sdk::schema::CallToolResult::text_content(vec![serde_json::to_string(
-        &serde_json::json!({
+    rust_mcp_sdk::schema::CallToolResult::text_content(vec![
+        serde_json::to_string(&serde_json::json!({
             "success": true,
             "flavor": flavor_name,
             "models": models,
             "default_model": default_model,
-        }),
-    )
-    .unwrap_or_default()
-    .into()])
+        }))
+        .unwrap_or_default()
+        .into(),
+    ])
 }

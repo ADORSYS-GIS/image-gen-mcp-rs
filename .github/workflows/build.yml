@@ -1,57 +1,161 @@
-name: Build Docker image
+name: Build and Release
 
 on:
   push:
     branches:
-      - '**'
+      - main
     tags:
       - 'v*'
-    paths:
-      - '.github/workflows/build.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'Dockerfile'
-      - 'src/**'
-      - '.dockerignore'
+  pull_request:
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
+  BINARY_NAME: image-mcp
   REGISTRY: ghcr.io
-  IMAGE_NAME: ADORSYS-GIS/adb-mcp-rs
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
-    name: Docker build
-    runs-on: ubuntu-latest
+  build-binaries:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
     permissions:
-      packages: write
-      contents: read
-      id-token: write # Required to sign SLSA provenance
-
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            arch: arm64
+            platform: macos
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            arch: amd64
+            platform: macos
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            arch: arm64
+            platform: linux
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            arch: amd64
+            platform: linux
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        name: Checkout repository
-        with:
-          fetch-depth: "0"
-          persist-credentials: 'false'
+      - uses: actions/checkout@v4
 
-      - name: Dockerfile scan (Trivy)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          scan-type: 'config'
-          scan-ref: '.'
-          trivy-config: 'trivy.yaml'
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux arm64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.target }}-cargo-
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Prepare binary
+        run: |
+          mkdir -p release
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} release/${{ env.BINARY_NAME }}
+          else
+            cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} release/${{ env.BINARY_NAME }}
+          fi
+          chmod +x release/${{ env.BINARY_NAME }}
+
+      - name: Install Syft for SBOM
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        run: |
+          syft scan file:release/${{ env.BINARY_NAME }} -o spdx-json > release/${{ env.BINARY_NAME }}-${{ matrix.target }}.sbom.json
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'release/${{ env.BINARY_NAME }}'
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
-          hide-progress: true
+          ignore-unfixed: true
+
+      - name: Create archive
+        run: |
+          cd release
+          tar -czvf ${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz ${{ env.BINARY_NAME }} ${{ env.BINARY_NAME }}-${{ matrix.target }}.sbom.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: release/${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz
+          retention-days: 7
+
+  create-release:
+    name: Create Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -la artifacts/*/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  build-docker:
+    name: Docker build
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
+        uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
       - name: Login to the Docker registry
         id: login
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
@@ -60,65 +164,49 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: lowercase
-        name: Lowercase image name
-        uses: AsZc/change-string-case-action@ecd1412d078f2e06e9eedcbaa6fcd988151c3f82
-        with:
-          string: ${{ env.IMAGE_NAME }}
-
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf
+        uses: docker/metadata-action@v5
         with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value={{branch}}
-            type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}}
-            type=sha,format=long
-            type=sha,format=long,prefix={{branch}}
-          images: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.lowercase }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
 
       - name: Build and push
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
-        if: github.event_name != 'pull_request'
         with:
-          pull: true
           context: .
-          file: "Dockerfile"
-          push: "true"
+          platforms: linux/amd64,linux/arm64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
           provenance: true
           sbom: true
 
-      - name: Set canonical image ref
-        id: img
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.lowercase }}
-          DIGEST: ${{ steps.build.outputs.digest }}
-          REF: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.lowercase }}@${{ steps.build.outputs.digest }}
-        run: |
-          {
-            printf 'image=%s\n' "$IMAGE"
-            printf 'digest=%s\n' "$DIGEST"
-            printf 'ref=%s\n' "$REF"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Install Cosign
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003
+        uses: sigstore/cosign-installer@v3
 
-      - name: Vulnerability scan (Trivy)
-        id: trivy
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+      - name: Sign image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images="${images}${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.img.outputs.ref }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: 'table'
-          vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
           ignore-unfixed: true
