@@ -22,15 +22,31 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    if let Err(e) = run().await {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
+    tracing::info!("Starting Image Generation MCP Server v{}", env!("CARGO_PKG_VERSION"));
+
+    // Combine signal handling with the main task
+    tokio::select! {
+        res = run() => {
+            if let Err(e) = res {
+                tracing::error!("Application error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Shutdown signal received, exiting gracefully...");
+        }
     }
 }
 
 async fn run() -> rust_mcp_sdk::error::SdkResult<()> {
     let cli = Cli::parse_config();
     let config = AppConfig::from_cli(cli.clone());
+
+    if config.api_key.is_empty() {
+        tracing::error!("API_KEY is missing! Set it via environment variable or --api-key.");
+    } else {
+        tracing::info!("Provider initialized with flavor: {:?}", config.flavor);
+    }
 
     match config.transport_mode {
         TransportMode::Stdio => run_stdio_server(config).await,

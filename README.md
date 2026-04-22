@@ -53,7 +53,7 @@ export OPENAI_API_KEY=your-api-key-here
 | `--base-url` | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API endpoint URL |
 | `--image-model` | `IMAGE_MODEL` | `nano-banana` | Default image model |
 | `--transport-mode` | `TRANSPORT_MODE` | `stdio` | Transport: `stdio` or `http` |
-| `--host` | `HOST` | `127.0.0.1` | HTTP server host |
+| `--host` | `HOST` | `0.0.0.0` | HTTP server host |
 | `--port` | `PORT` | `8080` | HTTP server port |
 | `--nano-banana` | `NANO_BANANA` | `false` | Enable nano-banana flavor |
 | `--openai-gen` | `OPENAI_GEN` | `false` | Enable OpenAI generation flavor |
@@ -127,21 +127,19 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 - `nano-banana-pro` -> `nano-banana-pro-preview`
 
 **Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
 | `prompt` | string | Text description of desired image |
 | `model` | string? | Override default model |
 | `ratio` | string? | Aspect ratio: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `21:9` |
 | `n` | number? | Number of images |
 | `seed` | number? | Seed for reproducible results |
 
-**Example:**
+**JSON Response Format:**
+All tools now return a structured JSON object for better AI integration:
 ```json
 {
-  "prompt": "A futuristic city skyline",
-  "ratio": "16:9",
-  "seed": 42,
-  "n": 1
+  "id": "cuid2_session_id",
+  "url": "https://...",
+  "prompt": "The original prompt used"
 }
 ```
 
@@ -389,27 +387,26 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 {"prompt": "App landing page alternative design", "size": "1792x1024", "n": 2}
 ```
 
-### Case 8: Iterative Refinement
+### Case 8: Iterative Refinement (Session-Based)
 
-**Scenario:** Continue editing an image concept.
+**Scenario:** You generated an image and want to refine it (e.g., "add a hat").
 
-**Any Flavor:**
+**Workflow:**
+1. Generate the initial image. The server returns an `image_id`.
+2. Use the `continue_edit` tool with that `image_id` and your new prompt.
+
 ```json
-// Start with a concept
-{"prompt": "Modern living room interior design", "size": "1024"}
+// 1. Initial generation
+tool: generate_image_nano {"prompt": "A cute cat on a sofa"}
+response: {"id": "v7n9x...", "url": "..."}
 
-// Continue editing
-{
-  "context_prompt": "Modern living room interior design",
-  "additional_prompt": "add a large indoor plant by the window"
-}
-
-// Further refinement
-{
-  "context_prompt": "Modern living room interior design add a large indoor plant by the window",
-  "additional_prompt": "make the lighting warmer and more cozy"
+// 2. Refinement using the ID
+tool: continue_edit {
+  "image_id": "v7n9x...",
+  "prompt": "Now make the cat wear a blue wizard hat"
 }
 ```
+*Note: The server uses multimodal context (Gemini) or image variations (OpenAI) to maintain consistency.*
 
 ## Integration with MCP Clients
 
@@ -431,15 +428,21 @@ Add to your Claude Desktop configuration:
 }
 ```
 
-### HTTP Integration
+### Production Deployment (Docker & K8s)
 
-For HTTP mode, configure your MCP client to connect to:
+The server is optimized for production with `distroless` images and Kubernetes support.
 
+**Docker Compose:**
+```bash
+docker compose up -d
 ```
-http://127.0.0.1:8080/mcp
+
+**Kubernetes:**
+```bash
+kubectl apply -f k8s/manifests.yaml
 ```
 
-With SSE support for real-time updates.
+See [deployment_guide.md](file:///home/benie/.gemini/antigravity/brain/e981540b-7aa8-4379-b7c6-91773f5fcd39/deployment_guide.md) for full production instructions including SSL/SSE setup for **LibreChat**.
 
 ## Project Structure
 

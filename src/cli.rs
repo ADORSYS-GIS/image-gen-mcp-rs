@@ -33,7 +33,7 @@ pub struct Cli {
     pub host: String,
 
     /// HTTP server port (when transport_mode is http)
-    #[arg(long, env = "PORT", default_value = "8080")]
+    #[arg(long, env = "PORT", default_value = "8000")]
     pub port: u16,
 
     /// Enable nano-banana flavor with ratio and seed support
