@@ -429,6 +429,17 @@ Add to your Claude Desktop configuration:
 ```
 
 
+### HTTP Integration
+
+For HTTP mode, configure your MCP client to connect to:
+
+```
+http://127.0.0.1:8080/mcp
+```
+
+With SSE support for real-time updates.
+
+
 
 ## Project Structure
 
