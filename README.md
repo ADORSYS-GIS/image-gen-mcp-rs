@@ -53,7 +53,7 @@ export OPENAI_API_KEY=your-api-key-here
 | `--base-url` | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API endpoint URL |
 | `--image-model` | `IMAGE_MODEL` | `nano-banana` | Default image model |
 | `--transport-mode` | `TRANSPORT_MODE` | `stdio` | Transport: `stdio` or `http` |
-| `--host` | `HOST` | `0.0.0.0` | HTTP server host |
+| `--host` | `HOST` | `127.0.0.1` | HTTP server host |
 | `--port` | `PORT` | `8080` | HTTP server port |
 | `--nano-banana` | `NANO_BANANA` | `false` | Enable nano-banana flavor |
 | `--openai-gen` | `OPENAI_GEN` | `false` | Enable OpenAI generation flavor |
@@ -428,21 +428,7 @@ Add to your Claude Desktop configuration:
 }
 ```
 
-### Production Deployment (Docker & K8s)
 
-The server is optimized for production with `distroless` images and Kubernetes support.
-
-**Docker Compose:**
-```bash
-docker compose up -d
-```
-
-**Kubernetes:**
-```bash
-kubectl apply -f k8s/manifests.yaml
-```
-
-See [deployment_guide.md](file:///home/benie/.gemini/antigravity/brain/e981540b-7aa8-4379-b7c6-91773f5fcd39/deployment_guide.md) for full production instructions including SSL/SSE setup for **LibreChat**.
 
 ## Project Structure
 
