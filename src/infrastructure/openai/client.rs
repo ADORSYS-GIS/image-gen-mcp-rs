@@ -1,7 +1,7 @@
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::images::{CreateImageRequestArgs, ImageModel, ImageResponseFormat, ImageSize},
+    types::images::{CreateImageRequestArgs, ImageModel, ImageSize},
 };
 use async_trait::async_trait;
 
@@ -25,7 +25,12 @@ impl OpenAiImageClient {
             .with_api_key(&config.api_key)
             .with_api_base(&config.base_url);
 
-        let client = Client::with_config(openai_config);
+        let http_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
+        let client = Client::with_config(openai_config).with_http_client(http_client);
         Self { client, config }
     }
 
@@ -43,9 +48,13 @@ impl OpenAiImageClient {
     }
 
     fn parse_model(&self, model: Option<&str>) -> ImageModel {
-        model
-            .map(|m| ImageModel::Other(m.to_string()))
-            .unwrap_or(ImageModel::Other(self.config.image_model.clone()))
+        let model_name = match model {
+            Some("dall-e") => "dall-e-3",
+            Some("gpt-image-1") => "gpt-image-1",
+            Some(m) => m,
+            None => &self.config.image_model,
+        };
+        ImageModel::Other(model_name.to_string())
     }
 
     async fn generate_standard(&self, params: GenerateParams) -> DomainResult<Vec<String>> {
@@ -58,7 +67,6 @@ impl OpenAiImageClient {
             .model(model)
             .n(n)
             .size(size)
-            .response_format(ImageResponseFormat::Url)
             .build()
             .map_err(DomainError::OpenAi)?;
 
@@ -96,7 +104,6 @@ impl OpenAiImageClient {
         builder.model(model);
         builder.n(n);
         builder.size(size);
-        builder.response_format(ImageResponseFormat::Url);
 
         if let Some(seed) = params.seed {
             builder.user(format!("seed:{}", seed));
@@ -127,4 +134,59 @@ impl ImageGenerationPort for OpenAiImageClient {
             _ => self.generate_standard(params).await,
         }
     }
+
+    async fn list_models(&self) -> DomainResult<Vec<String>> {
+        Ok(vec!["gpt-image-1".to_string(), "dall-e".to_string()])
+    }
+
+    async fn edit(&self, params: GenerateParams) -> DomainResult<Vec<String>> {
+        let image_data = params
+            .image_id
+            .clone()
+            .ok_or_else(|| DomainError::Image("Missing image for edit".to_string()))?;
+
+        // OpenAI edits/variations require actual files/bytes.
+        // We need to download the image first.
+        let bytes = if image_data.starts_with("data:") {
+            let parts: Vec<&str> = image_data.split(',').collect();
+            if parts.len() != 2 {
+                return Err(DomainError::Image("Invalid image data".to_string()));
+            }
+            BASE64_STANDARD.decode(parts[1])
+                .map_err(|e| DomainError::Image(format!("Base64 error: {}", e)))?
+        } else {
+            let resp = reqwest::get(&image_data).await.map_err(DomainError::Http)?;
+            resp.bytes().await.map_err(DomainError::Http)?.to_vec()
+        };
+
+        use async_openai::types::images::{CreateImageVariationRequestArgs, DallE2ImageSize};
+
+        let size = match self.parse_size(params.size.as_deref()) {
+            ImageSize::S256x256 => DallE2ImageSize::S256x256,
+            ImageSize::S512x512 => DallE2ImageSize::S512x512,
+            _ => DallE2ImageSize::S1024x1024,
+        };
+
+        let request = CreateImageVariationRequestArgs::default()
+            .image(async_openai::types::images::ImageInput::from_vec_u8("image.png".to_string(), bytes))
+            .n(params.n.unwrap_or(1))
+            .size(size)
+            .build()
+            .map_err(DomainError::OpenAi)?;
+
+        let response = self.client.images().create_variation(request).await?;
+
+        let urls: Vec<String> = response
+            .data
+            .iter()
+            .filter_map(|img| match img.as_ref() {
+                async_openai::types::images::Image::Url { url, .. } => Some(url.clone()),
+                _ => None,
+            })
+            .collect();
+
+        Ok(urls)
+    }
 }
+
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};

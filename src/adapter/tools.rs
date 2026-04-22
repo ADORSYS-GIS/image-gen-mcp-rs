@@ -79,7 +79,7 @@ pub struct GenerateImageOpenAiTool {
 #[mcp_tool(
     name = "continue_edit",
     title = "Continue Editing",
-    description = "Continue editing with additional prompts, maintaining context from previous generations",
+    description = "Refine or edit an existing image by referencing its ID.",
     destructive_hint = false,
     idempotent_hint = false,
     open_world_hint = false,
@@ -87,8 +87,10 @@ pub struct GenerateImageOpenAiTool {
 )]
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ContinueEditTool {
-    pub context_prompt: String,
-    pub additional_prompt: String,
+    /// The ID of the image to edit (e.g. from a previous generation)
+    pub image_id: String,
+    /// What changes to apply to the image
+    pub prompt: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 }

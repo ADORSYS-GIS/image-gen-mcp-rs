@@ -14,15 +14,14 @@ pub async fn handle_continue_edit(
 ) -> std::result::Result<rust_mcp_sdk::schema::CallToolResult, rust_mcp_sdk::schema::CallToolError>
 {
     let tool: crate::adapter::tools::ContinueEditTool = parse_args(params)?;
-    let gen_params = GenerateParams::new(format!(
-        "{} {}",
-        tool.context_prompt, tool.additional_prompt
-    ))
-    .with_model(tool.model.unwrap_or(default_model))
-    .with_n(1);
+    let model = tool.model.unwrap_or(default_model);
+
+    let gen_params = GenerateParams::new(tool.prompt)
+        .with_model(model.clone())
+        .with_image_id(tool.image_id);
 
     let urls = service
-        .generate(gen_params)
+        .edit(gen_params)
         .await
         .map_err(rust_mcp_sdk::schema::CallToolError::new)?;
 
@@ -30,6 +29,7 @@ pub async fn handle_continue_edit(
         serde_json::to_string(&serde_json::json!({
             "success": true,
             "images": urls,
+            "model": model,
         }))
         .unwrap_or_default()
         .into(),

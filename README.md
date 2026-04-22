@@ -4,11 +4,12 @@ A Model Context Protocol (MCP) server for image generation and editing via OpenA
 
 ## Features
 
-- 🎨 **Multi-flavor support** - Different parameter sets for different providers
+- 🎨 **Multi-flavor support** - Different parameter sets for Google Gemini and OpenAI
 - 🔄 **Dual transport** - STDIO for local tools, HTTP/SSE for remote access
 - ⚡ **High performance** - Built with Rust 2024 edition and mimalloc
 - 🧩 **SOLID architecture** - Clean separation of concerns with MVP pattern
 - 🔧 **Flexible configuration** - CLI flags or environment variables
+- 💾 **Persistence** - Support for saving images locally in `file` mode
 
 ## Installation
 
@@ -56,6 +57,8 @@ export OPENAI_API_KEY=your-api-key-here
 | `--port` | `PORT` | `8080` | HTTP server port |
 | `--nano-banana` | `NANO_BANANA` | `false` | Enable nano-banana flavor |
 | `--openai-gen` | `OPENAI_GEN` | `false` | Enable OpenAI generation flavor |
+| `--output-format` | `OUTPUT_FORMAT` | `url` | Output mode: `url` or `file` |
+| `--output-dir` | `OUTPUT_DIR` | `./outputs` | Directory to save images in `file` mode |
 
 ### Example Configurations
 
@@ -101,9 +104,9 @@ Basic image generation with size control. Works with most providers.
 }
 ```
 
-### Nano-Banana Flavor
+### Nano-Banana Flavor (Google Gemini Native)
 
-Optimized for nano-banana provider with **aspect ratio** and **seed** support for reproducible generations.
+Native support for Google Gemini Image Generation. Optimized with **aspect ratio** and **seed** support.
 
 ```bash
 # Enable via flag
@@ -115,8 +118,13 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Available Tools:**
 - `generate_image_nano` - Generate with ratio and seed
-- `continue_edit` - Iterative editing
-- `list_models` - Show nano-banana models
+- `continue_edit` - Iterative editing (Session-based)
+- `list_models` - Show available Gemini models
+
+**Default Model Mappings:**
+- `nano-banana` -> `gemini-2.5-flash-image`
+- `nano-banana2` -> `gemini-3.1-flash-image-preview`
+- `nano-banana-pro` -> `nano-banana-pro-preview`
 
 **Parameters:**
 | Parameter | Type | Description |

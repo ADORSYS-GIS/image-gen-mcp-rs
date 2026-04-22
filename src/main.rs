@@ -14,7 +14,7 @@ use adapter::handler::McpHandler;
 use application::image::ImageGenerationService;
 use cli::Cli;
 use core::config::{AppConfig, TransportMode};
-use infrastructure::openai::OpenAiImageClient;
+// mod adapter, core, infrastructure handled below
 
 #[tokio::main]
 async fn main() {
@@ -129,9 +129,13 @@ async fn run_http_server(config: AppConfig, port: u16) -> rust_mcp_sdk::error::S
 }
 
 fn create_handler(config: AppConfig) -> McpHandler {
-    let image_client = Arc::new(OpenAiImageClient::new(config.clone()))
-        as Arc<dyn core::traits::ImageGenerationPort>;
-    let image_service = Arc::new(ImageGenerationService::new(image_client));
+    let image_client = infrastructure::factory::ProviderFactory::create_client(config.clone());
+    let session = core::session::SessionStore::new();
+    let image_service = Arc::new(ImageGenerationService::new(
+        image_client,
+        config.clone(),
+        session,
+    ));
 
     McpHandler::new(image_service, config.image_model, config.flavor)
 }

@@ -120,10 +120,14 @@ impl McpHandler {
                 )
                 .await
             }
-            "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
-                self.flavor,
-                self.default_model.clone(),
-            )),
+            "list_models" => {
+                Ok(handlers::shared::list_models::build_list_models_response(
+                    self.image_service.clone(),
+                    self.flavor,
+                    self.default_model.clone(),
+                )
+                .await)
+            }
             _ => Ok(CallToolResult::text_content(vec![
                 format!("Tool '{}' not supported", params.name).into(),
             ])),
@@ -151,10 +155,14 @@ impl McpHandler {
                 )
                 .await
             }
-            "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
-                self.flavor,
-                self.default_model.clone(),
-            )),
+            "list_models" => {
+                Ok(handlers::shared::list_models::build_list_models_response(
+                    self.image_service.clone(),
+                    self.flavor,
+                    self.default_model.clone(),
+                )
+                .await)
+            }
             _ => Ok(CallToolResult::text_content(vec![
                 format!("Tool '{}' not supported", params.name).into(),
             ])),
@@ -182,10 +190,14 @@ impl McpHandler {
                 )
                 .await
             }
-            "list_models" => Ok(handlers::shared::list_models::build_list_models_response(
-                self.flavor,
-                self.default_model.clone(),
-            )),
+            "list_models" => {
+                Ok(handlers::shared::list_models::build_list_models_response(
+                    self.image_service.clone(),
+                    self.flavor,
+                    self.default_model.clone(),
+                )
+                .await)
+            }
             _ => Ok(CallToolResult::text_content(vec![
                 format!("Tool '{}' not supported", params.name).into(),
             ])),

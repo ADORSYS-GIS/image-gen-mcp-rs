@@ -43,6 +43,14 @@ pub struct Cli {
     /// Enable OpenAI generation flavor with quality and style support
     #[arg(long, env = "OPENAI_GEN", default_value = "false")]
     pub openai_gen: bool,
+
+    /// Output format: url or file
+    #[arg(long, env = "OUTPUT_FORMAT", default_value = "url")]
+    pub output_format: String,
+
+    /// Output directory for files (when output_format is file)
+    #[arg(long, env = "OUTPUT_DIR", default_value = "./outputs")]
+    pub output_dir: String,
 }
 
 impl Cli {
