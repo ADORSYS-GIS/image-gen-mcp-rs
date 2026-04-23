@@ -27,10 +27,26 @@ impl OpenAiImageClient {
 
     async fn gen_int(&self, p: GenerateParams, size: ImageSize) -> DomainResult<Vec<String>> {
         let model = OpenAiUtils::parse_model(p.model.as_deref(), &self.config);
+        let model_name = match &model {
+            async_openai::types::images::ImageModel::DallE2 => "dall-e-2",
+            async_openai::types::images::ImageModel::DallE3 => "dall-e-3",
+            async_openai::types::images::ImageModel::Other(name) => name.as_str(),
+            _ => "gpt-image-1",
+        };
+        
+        let quality = OpenAiUtils::parse_quality(p.quality.as_deref());
+        
+        // Style is only supported by DALL-E-3, not GPT-Image models
+        let style = if model_name == "dall-e-3" {
+            OpenAiUtils::parse_style(p.style.as_deref())
+        } else {
+            None
+        };
+        
         let mut builder = CreateImageRequestArgs::default();
         builder.prompt(&p.prompt).model(model).n(p.n.unwrap_or(1)).size(size);
-        if let Some(q) = OpenAiUtils::parse_quality(p.quality.as_deref()) { builder.quality(q); }
-        if let Some(s) = OpenAiUtils::parse_style(p.style.as_deref()) { builder.style(s); }
+        if let Some(q) = quality { builder.quality(q); }
+        if let Some(s) = style { builder.style(s); }
         if let Some(seed) = p.seed { builder.user(format!("seed:{}", seed)); }
         let resp = self.client.images().generate(builder.build().map_err(DomainError::OpenAi)?).await?;
         Ok(resp.data.iter().filter_map(|img| match img.as_ref() {

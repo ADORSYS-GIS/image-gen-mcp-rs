@@ -35,8 +35,14 @@ impl OpenAiUtils {
 
     pub fn parse_quality(quality: Option<&str>) -> Option<ImageQuality> {
         match quality {
+            // DALL-E quality values
             Some("hd") => Some(ImageQuality::HD),
             Some("standard") => Some(ImageQuality::Standard),
+            // GPT-Image quality values
+            Some("low") => Some(ImageQuality::Low),
+            Some("medium") => Some(ImageQuality::Medium),
+            Some("high") => Some(ImageQuality::High),
+            Some("auto") => Some(ImageQuality::Auto),
             _ => None,
         }
     }

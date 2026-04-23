@@ -19,6 +19,18 @@ pub async fn handle_generate_image_openai(
         .with_model(model.clone())
         .with_size(tool.size.clone().unwrap_or_else(|| "1024x1024".to_string()))
         .with_n(tool.n.unwrap_or(1));
+    
+    // Only add quality/style if explicitly provided (API will use defaults otherwise)
+    let gen_params = if let Some(q) = &tool.quality {
+        gen_params.with_quality(q.clone())
+    } else {
+        gen_params
+    };
+    let gen_params = if let Some(s) = &tool.style {
+        gen_params.with_style(s.clone())
+    } else {
+        gen_params
+    };
 
     let urls = service.generate(gen_params).await.map_err(CallToolError::new)?;
 
