@@ -163,7 +163,7 @@ All tools now return a structured JSON object for better AI integration:
 
 ### OpenAI-Gen Flavor
 
-Full OpenAI DALL-E support with **quality** and **style** parameters.
+Full OpenAI GPT-Image support with **quality** and **style** parameters for generation, and **semantic image editing** for iterative refinement.
 
 ```bash
 # Enable via flag
@@ -175,14 +175,25 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 
 **Available Tools:**
 - `generate_image_openai` - Generate with quality and style
-- `continue_edit` - Iterative editing
-- `list_models` - Show OpenAI models
+- `continue_edit` - **Semantic image editing** (understands prompts like "add a hat")
+- `list_models` - Show available GPT-Image models
+
+**Supported Models:**
+| Model | Description |
+|-------|-------------|
+| `gpt-image-1` | Default - Best for generation and semantic editing |
+| `gpt-image-1.5` | Latest model with improved capabilities |
+| `gpt-image-1-mini` | Faster, cost-efficient variant |
+| `dall-e-3` | Generation only (no edit support) |
+| `dall-e-2` | Generation only (no semantic edit support) |
+
+> **Note:** Only GPT-Image models support semantic image editing via `continue_edit`. DALL-E models have inpainting-only edit support which doesn't understand prompts like "add a rose to the chair".
 
 **Parameters:**
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `prompt` | string | Text description of desired image |
-| `model` | string? | Model: `dall-e-3`, `dall-e-2`, `gpt-image-1` |
+| `model` | string? | Model: `gpt-image-1`, `gpt-image-1.5`, `gpt-image-1-mini`, `dall-e-3`, `dall-e-2` |
 | `size` | string? | Size: `1024x1024`, `1792x1024`, `1024x1792` |
 | `n` | number? | Number of images (DALL-E-3 only supports 1) |
 | `quality` | string? | Quality: `standard` or `hd` |
@@ -192,7 +203,7 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 ```json
 {
   "prompt": "A photorealistic portrait of a wolf in forest",
-  "model": "dall-e-3",
+  "model": "gpt-image-1",
   "size": "1024x1024",
   "quality": "hd",
   "style": "natural"
@@ -272,7 +283,7 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Recommended Setup:**
 ```bash
-OPENAI_GEN=true ./image-mcp --api-key sk-xxx --image-model dall-e-3
+OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 ```
 
 **Workflow:**
@@ -321,7 +332,7 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Recommended Setup:**
 ```bash
-OPENAI_GEN=true ./image-mcp --api-key sk-xxx --image-model dall-e-3
+OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 ```
 
 **Workflow:**
@@ -406,7 +417,7 @@ tool: continue_edit {
   "prompt": "Now make the cat wear a blue wizard hat"
 }
 ```
-*Note: The server uses multimodal context (Gemini) or image variations (OpenAI) to maintain consistency.*
+*Note: The server uses multimodal context (Gemini) or semantic image editing (GPT-Image models) to maintain consistency. DALL-E models do not support semantic editing.*
 
 ## Integration with MCP Clients
 
