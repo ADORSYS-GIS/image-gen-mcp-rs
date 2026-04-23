@@ -1,6 +1,6 @@
 use async_openai::{
     Client, config::OpenAIConfig,
-    types::images::{CreateImageRequestArgs, ImageSize, CreateImageVariationRequestArgs, DallE2ImageSize, ImageInput},
+    types::images::{CreateImageRequestArgs, ImageSize},
 };
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -53,7 +53,13 @@ impl ImageGenerationPort for OpenAiImageClient {
         self.gen_int(p, size).await
     }
 
-    async fn list_models(&self) -> DomainResult<Vec<String>> { Ok(vec!["gpt-image-1".into(), "dall-e".into()]) }
+    async fn list_models(&self) -> DomainResult<Vec<String>> {
+        Ok(vec![
+            "gpt-image-1".into(),
+            "gpt-image-1.5".into(),
+            "gpt-image-1-mini".into(),
+        ])
+    }
 
     async fn edit(&self, p: GenerateParams) -> DomainResult<Vec<String>> {
         let img_id = p.image_id.clone().ok_or_else(|| DomainError::Image("Missing image".into()))?;
@@ -61,19 +67,36 @@ impl ImageGenerationPort for OpenAiImageClient {
             BASE64_STANDARD.decode(img_id.split(',').nth(1).ok_or_else(|| DomainError::Image("Invalid data URL".into()))?).map_err(|e| DomainError::Image(e.to_string()))?
         } else { reqwest::get(&img_id).await.map_err(DomainError::Http)?.bytes().await.map_err(DomainError::Http)?.to_vec() };
 
-        let size = match OpenAiUtils::parse_size(p.size.as_deref()) {
-            ImageSize::S256x256 => "256x256", ImageSize::S512x512 => "512x512", _ => "1024x1024",
+        let model = OpenAiUtils::parse_model(p.model.as_deref(), &self.config);
+        let model_name = match model {
+            async_openai::types::images::ImageModel::DallE2 => "dall-e-2",
+            async_openai::types::images::ImageModel::DallE3 => "dall-e-3",
+            async_openai::types::images::ImageModel::Other(ref name) => name.as_str(),
+            _ => "gpt-image-1",
         };
 
-        // Refined manual multipart request
-        let mut form = reqwest::multipart::Form::new()
-            .part("image", reqwest::multipart::Part::bytes(bytes).file_name("image.png").mime_str("image/png").unwrap());
-        
-        if p.n.unwrap_or(1) != 1 { form = form.text("n", p.n.unwrap_or(1).to_string()); }
-        if size != "1024x1024" { form = form.text("size", size.to_string()); }
-        form = form.text("response_format", "url");
+        // Only GPT-image models support semantic image editing (continue_edit)
+        // DALL-E-2/3 edit endpoints are for inpainting only, not semantic continuation
+        // - DALL-E-2: requires exact mask for inpainting, doesn't understand "add X to Y"
+        // - DALL-E-3: does NOT support edits endpoint at all
+        // - GPT-image-1/1.5: support semantic editing with prompt understanding
+        if !model_name.starts_with("gpt-image") {
+            return Err(DomainError::Image(format!(
+                "Model '{}' does not support semantic image editing. Use 'gpt-image-1' or 'gpt-image-1.5' for edits.",
+                model_name
+            )));
+        }
 
-        let url = format!("{}/images/variations", self.config.base_url.trim_end_matches('/'));
+        // GPT-image models use image[] array format, can edit with just prompt
+        // They understand semantic instructions like "add a rose to the chair"
+        let form = reqwest::multipart::Form::new()
+            .part("image[]", reqwest::multipart::Part::bytes(bytes.clone())
+                .file_name("image.png")
+                .mime_str("image/png").unwrap())
+            .text("model", model_name.to_string())
+            .text("prompt", p.prompt.clone());
+
+        let url = format!("{}/images/edits", self.config.base_url.trim_end_matches('/'));
         let resp = reqwest::Client::new().post(&url)
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Accept", "application/json")
@@ -86,15 +109,15 @@ impl ImageGenerationPort for OpenAiImageClient {
         }
 
         let json: serde_json::Value = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!("OpenAI Variation decode error: {}. Body: {}", e, body);
+            tracing::error!("OpenAI Edit decode error: {}. Body: {}", e, body);
             DomainError::Image(format!("error decoding response body: {}", e))
         })?;
 
-        // Extract URLs or Base64 from the data array
+        // GPT-image models always return base64
         let imgs = json["data"].as_array().map(|arr| {
             arr.iter().filter_map(|item| {
-                item["url"].as_str().map(|s| s.to_string())
-                    .or_else(|| item["b64_json"].as_str().map(|s| format!("data:image/png;base64,{}", s)))
+                item["b64_json"].as_str().map(|s| format!("data:image/png;base64,{}", s))
+                    .or_else(|| item["url"].as_str().map(|s| s.to_string()))
             }).collect()
         }).unwrap_or_default();
 

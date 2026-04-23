@@ -61,6 +61,9 @@ cuid2 = "0.1"
 # Base64 decoding
 base64 = "0.22"
 
+# Image processing for format conversion
+image = "0.25"
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3"

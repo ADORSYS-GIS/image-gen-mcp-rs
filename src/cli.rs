@@ -55,7 +55,18 @@ pub struct Cli {
 
 impl Cli {
     pub fn parse_config() -> Self {
-        Self::parse()
+        let cli = Self::parse();
+        
+        // Validate that only one flavor is enabled
+        let flavors_enabled = cli.nano_banana as u8 + cli.openai_gen as u8;
+        if flavors_enabled > 1 {
+            eprintln!("Error: Only one flavor can be enabled at a time.");
+            eprintln!("  --nano-banana: {}", cli.nano_banana);
+            eprintln!("  --openai-gen: {}", cli.openai_gen);
+            std::process::exit(1);
+        }
+        
+        cli
     }
 
     pub fn flavor(&self) -> Flavor {

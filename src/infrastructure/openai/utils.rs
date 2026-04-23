@@ -19,8 +19,14 @@ impl OpenAiUtils {
 
     pub fn parse_model(model: Option<&str>, config: &AppConfig) -> ImageModel {
         let model_name = match model {
-            Some("dall-e") => "dall-e-3",
-            Some("gpt-image-1") => "gpt-image-1",
+            // GPT-image model aliases
+            Some("gpt-image") | Some("gpt-image-1") => "gpt-image-1",
+            Some("gpt-image-1.5") => "gpt-image-1.5",
+            Some("gpt-image-1-mini") => "gpt-image-1-mini",
+            // DALL-E model aliases (for generation only, not editing)
+            Some("dall-e") | Some("dall-e-3") => "dall-e-3",
+            Some("dall-e-2") => "dall-e-2",
+            // Pass through other model names
             Some(m) => m,
             None => &config.image_model,
         };

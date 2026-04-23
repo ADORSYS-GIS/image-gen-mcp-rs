@@ -38,10 +38,22 @@ impl AppConfig {
             cli.base_url
         };
 
+        // Set flavor-specific default model if user didn't specify one
+        // OpenAiGen flavor uses gpt-image-1 as default for semantic image editing
+        // (dall-e-2/3 edits are inpainting-only, not semantic continuation)
+        let image_model = if cli.image_model == "nano-banana" {
+            match flavor {
+                crate::cli::Flavor::OpenAiGen => "gpt-image-1".to_string(),
+                _ => cli.image_model,
+            }
+        } else {
+            cli.image_model
+        };
+
         Self {
             api_key: cli.api_key,
             base_url,
-            image_model: cli.image_model,
+            image_model,
             transport_mode: if cli.transport_mode == "http" {
                 TransportMode::Http
             } else {
