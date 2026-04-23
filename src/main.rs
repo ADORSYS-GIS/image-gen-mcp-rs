@@ -1,157 +1,56 @@
 use mimalloc::MiMalloc;
 use std::sync::Arc;
-
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-mod adapter;
-mod application;
-mod cli;
-mod core;
-mod infrastructure;
+mod adapter; mod application; mod cli; mod core; mod infrastructure;
 
-use adapter::handler::McpHandler;
+use adapter::{handler::McpHandler, metadata::get_server_details};
 use application::image::ImageGenerationService;
 use cli::Cli;
 use core::config::{AppConfig, TransportMode};
-// mod adapter, core, infrastructure handled below
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
-
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).init();
     tracing::info!("Starting Image Generation MCP Server v{}", env!("CARGO_PKG_VERSION"));
-
-    // Combine signal handling with the main task
     tokio::select! {
-        res = run() => {
-            if let Err(e) = res {
-                tracing::error!("Application error: {}", e);
-                std::process::exit(1);
-            }
-        }
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Shutdown signal received, exiting gracefully...");
-        }
+        res = run() => { if let Err(e) = res { tracing::error!("App error: {}", e); std::process::exit(1); } }
+        _ = tokio::signal::ctrl_c() => { tracing::info!("Shutdown gracefully..."); }
     }
 }
 
 async fn run() -> rust_mcp_sdk::error::SdkResult<()> {
     let cli = Cli::parse_config();
     let config = AppConfig::from_cli(cli.clone());
-
-    if config.api_key.is_empty() {
-        tracing::error!("API_KEY is missing! Set it via environment variable or --api-key.");
-    } else {
-        tracing::info!("Provider initialized with flavor: {:?}", config.flavor);
-    }
-
+    if config.api_key.is_empty() { tracing::error!("API_KEY missing!"); } else { tracing::info!("Flavor: {:?}", config.flavor); }
     match config.transport_mode {
-        TransportMode::Stdio => run_stdio_server(config).await,
-        TransportMode::Http => run_http_server(config, cli.port).await,
+        TransportMode::Stdio => run_stdio(config).await, TransportMode::Http => run_http(config, cli.port).await,
     }
 }
 
-async fn run_stdio_server(config: AppConfig) -> rust_mcp_sdk::error::SdkResult<()> {
-    use rust_mcp_sdk::{
-        McpServer, StdioTransport, TransportOptions,
-        mcp_server::{
-            McpServerOptions, ServerRuntime, ToMcpServerHandler, server_runtime::create_server,
-        },
-        schema::*,
-    };
-
+async fn run_stdio(config: AppConfig) -> rust_mcp_sdk::error::SdkResult<()> {
+    use rust_mcp_sdk::{McpServer, StdioTransport, TransportOptions, mcp_server::{McpServerOptions, ToMcpServerHandler, server_runtime::create_server}};
     let handler = create_handler(config.clone());
-
-    let server_details = InitializeResult {
-        server_info: Implementation {
-            name: "image-mcp".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            title: Some("Image Generation MCP Server".into()),
-            description: Some("MCP server for image generation via OpenAI-compatible APIs".into()),
-            icons: vec![],
-            website_url: None,
-        },
-        capabilities: ServerCapabilities {
-            tools: Some(ServerCapabilitiesTools { list_changed: None }),
-            ..Default::default()
-        },
-        protocol_version: ProtocolVersion::V2025_11_25.into(),
-        instructions: Some(format!(
-            "Flavor: {:?}. Generate images via OpenAI-compatible providers.",
-            config.flavor
-        )),
-        meta: None,
-    };
-
-    let transport = StdioTransport::new(TransportOptions::default())?;
-    let server: Arc<ServerRuntime> = create_server(McpServerOptions {
-        server_details,
-        transport,
-        handler: handler.to_mcp_server_handler(),
-        task_store: None,
-        client_task_store: None,
-        message_observer: None,
+    let server = create_server(McpServerOptions {
+        server_details: get_server_details(config.flavor), transport: StdioTransport::new(TransportOptions::default())?,
+        handler: handler.to_mcp_server_handler(), task_store: None, client_task_store: None, message_observer: None,
     });
-
     server.start().await
 }
 
-async fn run_http_server(config: AppConfig, port: u16) -> rust_mcp_sdk::error::SdkResult<()> {
-    use rust_mcp_sdk::{
-        event_store::InMemoryEventStore,
-        mcp_server::{HyperServerOptions, ToMcpServerHandler, hyper_server},
-        schema::*,
-    };
-
+async fn run_http(config: AppConfig, port: u16) -> rust_mcp_sdk::error::SdkResult<()> {
+    use rust_mcp_sdk::{event_store::InMemoryEventStore, mcp_server::{HyperServerOptions, ToMcpServerHandler, hyper_server}};
     let handler = create_handler(config.clone());
-
-    let server_details = InitializeResult {
-        server_info: Implementation {
-            name: "image-mcp".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            title: Some("Image Generation MCP Server".into()),
-            description: Some("MCP server for image generation via OpenAI-compatible APIs".into()),
-            icons: vec![],
-            website_url: None,
-        },
-        capabilities: ServerCapabilities {
-            tools: Some(ServerCapabilitiesTools { list_changed: None }),
-            ..Default::default()
-        },
-        protocol_version: ProtocolVersion::V2025_11_25.into(),
-        instructions: Some(format!(
-            "Flavor: {:?}. Generate images via OpenAI-compatible providers.",
-            config.flavor
-        )),
-        meta: None,
-    };
-
     let server = hyper_server::create_server(
-        server_details,
-        handler.to_mcp_server_handler(),
-        HyperServerOptions {
-            host: config.host,
-            port,
-            event_store: Some(Arc::new(InMemoryEventStore::default())),
-            sse_support: true,
-            ..Default::default()
-        },
+        get_server_details(config.flavor), handler.to_mcp_server_handler(),
+        HyperServerOptions { host: config.host, port, event_store: Some(Arc::new(InMemoryEventStore::default())), sse_support: true, ..Default::default() },
     );
-
     server.start().await
 }
 
 fn create_handler(config: AppConfig) -> McpHandler {
-    let image_client = infrastructure::factory::ProviderFactory::create_client(config.clone());
-    let session = core::session::SessionStore::new();
-    let image_service = Arc::new(ImageGenerationService::new(
-        image_client,
-        config.clone(),
-        session,
-    ));
-
-    McpHandler::new(image_service, config.image_model, config.flavor)
+    let client = infrastructure::factory::ProviderFactory::create_client(config.clone());
+    let service = Arc::new(ImageGenerationService::new(client, config.clone(), core::session::SessionStore::new()));
+    McpHandler::new(service, config.image_model, config.flavor)
 }
