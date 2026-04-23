@@ -196,14 +196,26 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 | `model` | string? | Model: `gpt-image-1`, `gpt-image-1.5`, `gpt-image-1-mini`, `dall-e-3`, `dall-e-2` |
 | `size` | string? | Size: `1024x1024`, `1792x1024`, `1024x1792` |
 | `n` | number? | Number of images (DALL-E-3 only supports 1) |
-| `quality` | string? | Quality: `standard` or `hd` |
-| `style` | string? | Style: `vivid` or `natural` |
+| `quality` | string? | GPT-Image: `low`, `medium`, `high`, `auto`; DALL-E: `standard`, `hd` |
+| `style` | string? | DALL-E-3 only: `vivid` or `natural` (not supported by GPT-Image) |
 
-**Example:**
+> **Note:** The `style` parameter is only supported by DALL-E-3. GPT-Image models do not accept this parameter.
+
+**Example (GPT-Image):**
 ```json
 {
   "prompt": "A photorealistic portrait of a wolf in forest",
   "model": "gpt-image-1",
+  "size": "1024x1024",
+  "quality": "high"
+}
+```
+
+**Example (DALL-E-3):**
+```json
+{
+  "prompt": "A photorealistic portrait of a wolf in forest",
+  "model": "dall-e-3",
   "size": "1024x1024",
   "quality": "hd",
   "style": "natural"
@@ -212,14 +224,14 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 
 **Use Cases:**
 
-1. **High-quality marketing materials:**
+1. **High-quality marketing materials (GPT-Image):**
    ```json
-   {"prompt": "Product shot of luxury watch", "quality": "hd", "style": "natural"}
+   {"prompt": "Product shot of luxury watch", "quality": "high"}
    ```
 
-2. **Creative and artistic images:**
+2. **Creative and artistic images (DALL-E-3):**
    ```json
-   {"prompt": "Abstract digital art with neon colors", "quality": "hd", "style": "vivid"}
+   {"prompt": "Abstract digital art with neon colors", "model": "dall-e-3", "quality": "hd", "style": "vivid"}
    ```
 
 3. **Landscape orientations for presentations:**
