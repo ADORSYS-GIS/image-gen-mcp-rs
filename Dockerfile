@@ -61,6 +61,7 @@ LABEL org.opencontainers.image.description="adorsys GIS Cameroon"
 
 ENV RUST_LOG=warn
 ENV PORT=8000
+ENV HOST=0.0.0.0
 
 WORKDIR /app
 
