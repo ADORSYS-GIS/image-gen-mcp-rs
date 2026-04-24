@@ -33,7 +33,7 @@ pub struct Cli {
     pub host: String,
 
     /// HTTP server port (when transport_mode is http)
-    #[arg(long, env = "PORT", default_value = "8080")]
+    #[arg(long, env = "PORT", default_value = "8000")]
     pub port: u16,
 
     /// Enable nano-banana flavor with ratio and seed support
@@ -43,11 +43,30 @@ pub struct Cli {
     /// Enable OpenAI generation flavor with quality and style support
     #[arg(long, env = "OPENAI_GEN", default_value = "false")]
     pub openai_gen: bool,
+
+    /// Output format: url or file
+    #[arg(long, env = "OUTPUT_FORMAT", default_value = "url")]
+    pub output_format: String,
+
+    /// Output directory for files (when output_format is file)
+    #[arg(long, env = "OUTPUT_DIR", default_value = "./outputs")]
+    pub output_dir: String,
 }
 
 impl Cli {
     pub fn parse_config() -> Self {
-        Self::parse()
+        let cli = Self::parse();
+        
+        // Validate that only one flavor is enabled
+        let flavors_enabled = cli.nano_banana as u8 + cli.openai_gen as u8;
+        if flavors_enabled > 1 {
+            eprintln!("Error: Only one flavor can be enabled at a time.");
+            eprintln!("  --nano-banana: {}", cli.nano_banana);
+            eprintln!("  --openai-gen: {}", cli.openai_gen);
+            std::process::exit(1);
+        }
+        
+        cli
     }
 
     pub fn flavor(&self) -> Flavor {

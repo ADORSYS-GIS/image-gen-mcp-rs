@@ -13,6 +13,7 @@ pub struct GenerateParams {
     pub quality: Option<String>,
     pub style: Option<String>,
     pub seed: Option<i64>,
+    pub image_id: Option<String>,
 }
 
 impl GenerateParams {
@@ -26,6 +27,7 @@ impl GenerateParams {
             quality: None,
             style: None,
             seed: None,
+            image_id: None,
         }
     }
 
@@ -63,10 +65,17 @@ impl GenerateParams {
         self.style = Some(style.into());
         self
     }
+
+    pub fn with_image_id(mut self, image_id: impl Into<String>) -> Self {
+        self.image_id = Some(image_id.into());
+        self
+    }
 }
 
 /// Port for generating images
 #[async_trait]
 pub trait ImageGenerationPort: Send + Sync {
     async fn generate(&self, params: GenerateParams) -> DomainResult<Vec<String>>;
+    async fn edit(&self, params: GenerateParams) -> DomainResult<Vec<String>>;
+    async fn list_models(&self) -> DomainResult<Vec<String>>;
 }

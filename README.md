@@ -4,11 +4,12 @@ A Model Context Protocol (MCP) server for image generation and editing via OpenA
 
 ## Features
 
-- 🎨 **Multi-flavor support** - Different parameter sets for different providers
+- 🎨 **Multi-flavor support** - Different parameter sets for Google Gemini and OpenAI
 - 🔄 **Dual transport** - STDIO for local tools, HTTP/SSE for remote access
 - ⚡ **High performance** - Built with Rust 2024 edition and mimalloc
 - 🧩 **SOLID architecture** - Clean separation of concerns with MVP pattern
 - 🔧 **Flexible configuration** - CLI flags or environment variables
+- 💾 **Persistence** - Support for saving images locally in `file` mode
 
 ## Installation
 
@@ -56,6 +57,8 @@ export OPENAI_API_KEY=your-api-key-here
 | `--port` | `PORT` | `8080` | HTTP server port |
 | `--nano-banana` | `NANO_BANANA` | `false` | Enable nano-banana flavor |
 | `--openai-gen` | `OPENAI_GEN` | `false` | Enable OpenAI generation flavor |
+| `--output-format` | `OUTPUT_FORMAT` | `url` | Output mode: `url` or `file` |
+| `--output-dir` | `OUTPUT_DIR` | `./outputs` | Directory to save images in `file` mode |
 
 ### Example Configurations
 
@@ -101,9 +104,9 @@ Basic image generation with size control. Works with most providers.
 }
 ```
 
-### Nano-Banana Flavor
+### Nano-Banana Flavor (Google Gemini Native)
 
-Optimized for nano-banana provider with **aspect ratio** and **seed** support for reproducible generations.
+Native support for Google Gemini Image Generation. Optimized with **aspect ratio** and **seed** support.
 
 ```bash
 # Enable via flag
@@ -115,25 +118,28 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Available Tools:**
 - `generate_image_nano` - Generate with ratio and seed
-- `continue_edit` - Iterative editing
-- `list_models` - Show nano-banana models
+- `continue_edit` - Iterative editing (Session-based)
+- `list_models` - Show available Gemini models
+
+**Default Model Mappings:**
+- `nano-banana` -> `gemini-2.5-flash-image`
+- `nano-banana2` -> `gemini-3.1-flash-image-preview`
+- `nano-banana-pro` -> `nano-banana-pro-preview`
 
 **Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
 | `prompt` | string | Text description of desired image |
 | `model` | string? | Override default model |
 | `ratio` | string? | Aspect ratio: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `21:9` |
 | `n` | number? | Number of images |
 | `seed` | number? | Seed for reproducible results |
 
-**Example:**
+**JSON Response Format:**
+All tools now return a structured JSON object for better AI integration:
 ```json
 {
-  "prompt": "A futuristic city skyline",
-  "ratio": "16:9",
-  "seed": 42,
-  "n": 1
+  "id": "cuid2_session_id",
+  "url": "https://...",
+  "prompt": "The original prompt used"
 }
 ```
 
@@ -157,7 +163,7 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 ### OpenAI-Gen Flavor
 
-Full OpenAI DALL-E support with **quality** and **style** parameters.
+Full OpenAI GPT-Image support with **quality** and **style** parameters for generation, and **semantic image editing** for iterative refinement.
 
 ```bash
 # Enable via flag
@@ -169,20 +175,43 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 
 **Available Tools:**
 - `generate_image_openai` - Generate with quality and style
-- `continue_edit` - Iterative editing
-- `list_models` - Show OpenAI models
+- `continue_edit` - **Semantic image editing** (understands prompts like "add a hat")
+- `list_models` - Show available GPT-Image models
+
+**Supported Models:**
+| Model | Description |
+|-------|-------------|
+| `gpt-image-1` | Default - Best for generation and semantic editing |
+| `gpt-image-1.5` | Latest model with improved capabilities |
+| `gpt-image-1-mini` | Faster, cost-efficient variant |
+| `dall-e-3` | Generation only (no edit support) |
+| `dall-e-2` | Generation only (no semantic edit support) |
+
+> **Note:** Only GPT-Image models support semantic image editing via `continue_edit`. DALL-E models have inpainting-only edit support which doesn't understand prompts like "add a rose to the chair".
 
 **Parameters:**
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `prompt` | string | Text description of desired image |
-| `model` | string? | Model: `dall-e-3`, `dall-e-2`, `gpt-image-1` |
+| `model` | string? | Model: `gpt-image-1`, `gpt-image-1.5`, `gpt-image-1-mini`, `dall-e-3`, `dall-e-2` |
 | `size` | string? | Size: `1024x1024`, `1792x1024`, `1024x1792` |
 | `n` | number? | Number of images (DALL-E-3 only supports 1) |
-| `quality` | string? | Quality: `standard` or `hd` |
-| `style` | string? | Style: `vivid` or `natural` |
+| `quality` | string? | GPT-Image: `low`, `medium`, `high`, `auto`; DALL-E: `standard`, `hd` |
+| `style` | string? | DALL-E-3 only: `vivid` or `natural` (not supported by GPT-Image) |
 
-**Example:**
+> **Note:** The `style` parameter is only supported by DALL-E-3. GPT-Image models do not accept this parameter.
+
+**Example (GPT-Image):**
+```json
+{
+  "prompt": "A photorealistic portrait of a wolf in forest",
+  "model": "gpt-image-1",
+  "size": "1024x1024",
+  "quality": "high"
+}
+```
+
+**Example (DALL-E-3):**
 ```json
 {
   "prompt": "A photorealistic portrait of a wolf in forest",
@@ -195,14 +224,14 @@ OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 
 **Use Cases:**
 
-1. **High-quality marketing materials:**
+1. **High-quality marketing materials (GPT-Image):**
    ```json
-   {"prompt": "Product shot of luxury watch", "quality": "hd", "style": "natural"}
+   {"prompt": "Product shot of luxury watch", "quality": "high"}
    ```
 
-2. **Creative and artistic images:**
+2. **Creative and artistic images (DALL-E-3):**
    ```json
-   {"prompt": "Abstract digital art with neon colors", "quality": "hd", "style": "vivid"}
+   {"prompt": "Abstract digital art with neon colors", "model": "dall-e-3", "quality": "hd", "style": "vivid"}
    ```
 
 3. **Landscape orientations for presentations:**
@@ -266,7 +295,7 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Recommended Setup:**
 ```bash
-OPENAI_GEN=true ./image-mcp --api-key sk-xxx --image-model dall-e-3
+OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 ```
 
 **Workflow:**
@@ -315,7 +344,7 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 
 **Recommended Setup:**
 ```bash
-OPENAI_GEN=true ./image-mcp --api-key sk-xxx --image-model dall-e-3
+OPENAI_GEN=true ./image-mcp --api-key sk-xxx
 ```
 
 **Workflow:**
@@ -381,27 +410,26 @@ NANO_BANANA=true ./image-mcp --api-key sk-xxx
 {"prompt": "App landing page alternative design", "size": "1792x1024", "n": 2}
 ```
 
-### Case 8: Iterative Refinement
+### Case 8: Iterative Refinement (Session-Based)
 
-**Scenario:** Continue editing an image concept.
+**Scenario:** You generated an image and want to refine it (e.g., "add a hat").
 
-**Any Flavor:**
+**Workflow:**
+1. Generate the initial image. The server returns an `image_id`.
+2. Use the `continue_edit` tool with that `image_id` and your new prompt.
+
 ```json
-// Start with a concept
-{"prompt": "Modern living room interior design", "size": "1024"}
+// 1. Initial generation
+tool: generate_image_nano {"prompt": "A cute cat on a sofa"}
+response: {"id": "v7n9x...", "url": "..."}
 
-// Continue editing
-{
-  "context_prompt": "Modern living room interior design",
-  "additional_prompt": "add a large indoor plant by the window"
-}
-
-// Further refinement
-{
-  "context_prompt": "Modern living room interior design add a large indoor plant by the window",
-  "additional_prompt": "make the lighting warmer and more cozy"
+// 2. Refinement using the ID
+tool: continue_edit {
+  "image_id": "v7n9x...",
+  "prompt": "Now make the cat wear a blue wizard hat"
 }
 ```
+*Note: The server uses multimodal context (Gemini) or semantic image editing (GPT-Image models) to maintain consistency. DALL-E models do not support semantic editing.*
 
 ## Integration with MCP Clients
 
@@ -423,6 +451,7 @@ Add to your Claude Desktop configuration:
 }
 ```
 
+
 ### HTTP Integration
 
 For HTTP mode, configure your MCP client to connect to:
@@ -432,6 +461,8 @@ http://127.0.0.1:8080/mcp
 ```
 
 With SSE support for real-time updates.
+
+
 
 ## Project Structure
 
