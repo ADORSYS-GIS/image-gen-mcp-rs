@@ -51,7 +51,8 @@ RUN \
   cargo build --release --locked \
     --target "${RUST_TARGET}" \
     -p image-mcp \
-  && cp ./target/"${RUST_TARGET}"/release/image-mcp image-mcp
+  && cp ./target/"${RUST_TARGET}"/release/image-mcp image-mcp \
+  && mkdir -p outputs && chmod 777 outputs
 
 FROM gcr.io/distroless/static-debian12:nonroot as oauth2
 
@@ -64,6 +65,7 @@ ENV PORT=8000
 WORKDIR /app
 
 COPY --from=builder /app/image-mcp /app/image-mcp
+COPY --from=builder /app/outputs /app/outputs
 
 USER nonroot:nonroot
 
