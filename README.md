@@ -13,6 +13,16 @@ A Model Context Protocol (MCP) server for image generation and editing via OpenA
 
 ## Installation
 
+### Docker (Recommended)
+
+Pull the image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/adorsys-gis/image-gen-mcp-rs:master
+```
+
+### Build from Source
+
 ```bash
 # Build from source
 cargo build --release
@@ -21,7 +31,91 @@ cargo build --release
 ./target/release/image-mcp
 ```
 
-## Quick Start
+## Quick Start with Docker
+
+### STDIO Mode (for MCP Clients like Roo Code)
+
+```bash
+docker run --rm -i \
+  --entrypoint /app/image-mcp \
+  -e OPENAI_API_KEY=your-api-key \
+  -e NANO_BANANA=true \
+  ghcr.io/adorsys-gis/image-gen-mcp-rs:master \
+  --transport-mode stdio
+```
+
+### HTTP/SSE Mode (for MCP Inspector)
+
+```bash
+# Start the HTTP server
+docker run --rm -d -p 8080:8000 \
+  -e OPENAI_API_KEY=your-api-key \
+  -e NANO_BANANA=true \
+  ghcr.io/adorsys-gis/image-gen-mcp-rs:master
+
+# SSE endpoint: http://localhost:8080/sse
+# HTTP endpoint: http://localhost:8080/mcp
+```
+
+
+### MCP Client Configuration
+
+Configure your MCP client (Claude Desktop, Roo Code, Continue, etc.) to use the Docker image.
+
+**Option 1: STDIO Mode (Recommended)**
+
+Add to your MCP settings file:
+
+```json
+{
+  "mcpServers": {
+    "image-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "--entrypoint", "/app/image-mcp",
+        "-e", "OPENAI_API_KEY",
+        "-e", "NANO_BANANA=true",
+        "ghcr.io/adorsys-gis/image-gen-mcp-rs:master",
+        "--transport-mode", "stdio"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+**Option 2: SSE Mode (HTTP)**
+
+For SSE mode, run the container separately first:
+
+```bash
+# Start the HTTP server
+docker run --rm -d --name image-mcp-server -p 8080:8000 \
+  -e OPENAI_API_KEY=your-api-key \
+  -e NANO_BANANA=true \
+  ghcr.io/adorsys-gis/image-gen-mcp-rs:master
+```
+
+Then configure your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "image-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}
+```
+
+> **Note:** STDIO mode is recommended because it's simpler - the container automatically starts when your MCP client loads and stops when it closes. SSE mode requires manual server management but allows sharing the server across multiple clients.
+
+
+## Quick Start (Binary)
 
 ### Basic Usage (STDIO)
 
