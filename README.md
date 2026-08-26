@@ -2,6 +2,18 @@
 
 A Model Context Protocol (MCP) server for image generation and editing via OpenAI-compatible endpoints. Supports **nanobanana**, **DALL-E**, and **GPT Image** providers with flavor-specific features.
 
+> **Deployment status: evaluated, not wired.** This server is not currently exposed
+> through the ADORSYS-GIS AI platform gateway (`charts/mcps`). It was evaluated as a
+> sixth MCP route and deliberately parked ([Story ai-helm#991](https://github.com/ADORSYS-GIS/ai-helm/issues/991)):
+> image generation is already delivered by the self-hosted **Z-Image-Turbo** on the GPU
+> fleet (LocalAI, ADR-0100/0102) via LibreChat's `IMAGE_GEN`, and the binary is a full
+> major + 7 minors behind its core dependencies ([issue #41](https://github.com/ADORSYS-GIS/image-gen-mcp-rs/issues/41)),
+> with default providers that are external SaaS (OpenAI / Gemini).
+>
+> To wire it later: finish the dependency migration (#41), rebuild and push the GHCR
+> image, then add a `selfHosted` entry to `charts/mcps` pointing `OPENAI_BASE_URL` at
+> the in-cluster z-turbo (or a federated image backend).
+
 ## Features
 
 - 🎨 **Multi-flavor support** - Different parameter sets for Google Gemini and OpenAI
