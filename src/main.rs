@@ -40,11 +40,19 @@ async fn run_stdio(config: AppConfig) -> rust_mcp_sdk::error::SdkResult<()> {
 }
 
 async fn run_http(config: AppConfig, port: u16) -> rust_mcp_sdk::error::SdkResult<()> {
-    use rust_mcp_sdk::{event_store::InMemoryEventStore, mcp_server::{HyperServerOptions, ToMcpServerHandler, hyper_server}};
+    use rust_mcp_axum::{AxumServer, AxumServerOptions};
+    use rust_mcp_sdk::{event_store::InMemoryEventStore, mcp_server::ToMcpServerHandler};
     let handler = create_handler(config.clone());
-    let server = hyper_server::create_server(
-        get_server_details(config.flavor), handler.to_mcp_server_handler(),
-        HyperServerOptions { host: config.host, port, event_store: Some(Arc::new(InMemoryEventStore::default())), sse_support: true, ..Default::default() },
+    let server = AxumServer::new(
+        get_server_details(config.flavor),
+        handler.to_mcp_server_handler(),
+        AxumServerOptions {
+            host: config.host,
+            port,
+            event_store: Some(Arc::new(InMemoryEventStore::default())),
+            sse_support: true,
+            ..Default::default()
+        },
     );
     server.start().await
 }

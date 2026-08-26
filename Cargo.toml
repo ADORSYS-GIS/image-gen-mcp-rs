@@ -12,14 +12,19 @@ authors = [
 
 [dependencies]
 # MCP SDK - supports stdio + streamable HTTP + SSE
-rust-mcp-sdk = { version = "0.9", default-features = false, features = [
+# 1.0 note: the HTTP server itself moved to the standalone rust-mcp-axum crate
+# (hyper-server feature was removed in 0.10.0); sse/streamable-http remain here
+# as transport-layer features.
+rust-mcp-sdk = { version = "1.0", default-features = false, features = [
     "server",
     "macros",
     "stdio",
-    "hyper-server",
     "streamable-http",
     "sse",
 ] }
+
+# Axum-based MCP HTTP server integration (required since rust-mcp-sdk 0.10)
+rust-mcp-axum = { version = "1.0", default-features = false }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -28,7 +33,7 @@ tokio = { version = "1", features = ["full"] }
 mimalloc = "0.1"
 
 # OpenAI-compatible API client for image generation
-async-openai = { version = "0.34", default-features = false, features = [
+async-openai = { version = "0.41", default-features = false, features = [
     "rustls",
     "_api",
     "image",
@@ -50,7 +55,10 @@ anyhow = "1"
 async-trait = "0.1"
 
 # HTTP client for API calls
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# multipart/json declared explicitly: we call reqwest::multipart + .json() ourselves
+# (previously relied on transitive feature-unification via async-openai)
+# 0.13 renamed the rustls-tls feature to rustls
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "multipart", "json"] }
 
 # CLI arguments with environment variable support
 clap = { version = "4", features = ["derive", "env"] }
@@ -59,7 +67,7 @@ clap = { version = "4", features = ["derive", "env"] }
 cuid2 = "0.1"
 
 # Base64 decoding
-base64 = "0.22"
+base64 = "0.23"
 
 # Image processing for format conversion
 image = "0.25"
